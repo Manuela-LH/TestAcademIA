@@ -1,0 +1,117 @@
+.section {
+  padding: 6rem 0;
+  background: white;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 4rem;
+}
+
+.tag {
+  display: inline-block;
+  background: linear-gradient(135deg, var(--color-accent), var(--color-light));
+  color: var(--color-dark);
+  padding: 0.4rem 1rem;
+  border-radius: 15px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 1rem;
+}
+
+.title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--color-dark);
+}
+
+.steps {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.5rem;
+  margin-bottom: 4rem;
+}
+
+.step {
+  position: relative;
+  text-align: center;
+}
+
+.stepNumber {
+  font-size: 3.5rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1;
+  margin-bottom: 1rem;
+}
+
+.stepContent {
+  padding: 0 1rem;
+}
+
+.stepTitle {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--color-dark);
+  margin-bottom: 0.5rem;
+}
+
+.stepDescription {
+  font-size: 0.9rem;
+  color: var(--color-text-light);
+  line-height: 1.5;
+}
+
+.connector {
+  position: absolute;
+  top: 30px;
+  right: -20%;
+  width: 40%;
+  height: 2px;
+  background: linear-gradient(90deg, var(--color-secondary), transparent);
+}
+
+.diagram {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.diagramCard {
+  background: linear-gradient(135deg, #F8F9FA, white);
+  border: 2px solid var(--color-light);
+  padding: 1.2rem 1.5rem;
+  border-radius: 15px;
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  font-weight: 500;
+  color: var(--color-dark);
+}
+
+.diagramIcon { font-size: 1.5rem; }
+.diagramArrow { font-size: 1.5rem; color: var(--color-secondary); font-weight: bold; }
+
+@media (max-width: 1024px) {
+  .steps { grid-template-columns: repeat(2, 1fr); gap: 2.5rem; }
+  .connector { display: none; }
+}
+
+@media (max-width: 640px) {
+  .steps { grid-template-columns: 1fr; }
+  .diagram { flex-direction: column; }
+  .diagramArrow { transform: rotate(90deg); }
+}
