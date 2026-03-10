@@ -5,8 +5,8 @@ import { supabase } from '@/lib/supabase'
 import styles from './temas.module.css'
 
 interface Tema {
-  TemaID: number
-  UserID: number
+  temaid: number
+  userid: number
   tema_name: string
 }
 
@@ -17,21 +17,29 @@ export default function TemasPage() {
   const [showModal, setShowModal] = useState(false)
   const [newTemaName, setNewTemaName] = useState('')
   const [saving, setSaving] = useState(false)
+  const [userIdState, setUserIdState] = useState<number | null>(null)
 
   useEffect(() => {
     const fetchUserAndTemas = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      
+
       if (user) {
         setUser(user)
-        const { data: usuario } = await supabase
+        const { data: usuario, error } = await supabase
           .from('usuarios')
-          .select('UserID')
+          .select('*')
           .eq('auth_id', user.id)
           .single()
-        
+
+        if (error) {
+          console.error('Error fetching internal UserID:', error)
+          // El usuario probablamente no exista en la tabla
+        }
+
         if (usuario) {
-          fetchTemas(usuario.UserID)
+          const uId = usuario.userid || usuario.UserID
+          setUserIdState(uId)
+          fetchTemas(uId)
         }
       }
       setLoading(false)
@@ -44,10 +52,12 @@ export default function TemasPage() {
     const { data, error } = await supabase
       .from('temas')
       .select('*')
-      .eq('UserID', userId)
-      .order('TemaID', { ascending: false })
+      .eq('userid', userId)
+      .order('temaid', { ascending: false })
 
-    if (!error && data) {
+    if (error) {
+      console.error('Error fetching temas:', error)
+    } else if (data) {
       setTemas(data)
     }
     setLoading(false)
@@ -55,32 +65,30 @@ export default function TemasPage() {
 
   const handleAddTema = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!newTemaName.trim() || !user) return
-
-    setSaving(true)
-
-    const { data: usuario } = await supabase
-      .from('usuarios')
-      .select('UserID')
-      .eq('auth_id', user.id)
-      .single()
-
-    if (!usuario) {
-      setSaving(false)
+    if (!newTemaName.trim() || !user || !userIdState) {
+      if (!userIdState) {
+        console.error('No se pudo encontrar el ID interno del usuario para guardar el tema.')
+        alert('Error crítico: Falta de perfil interno vinculado.')
+      }
       return
     }
+
+    setSaving(true)
 
     const { data, error } = await supabase
       .from('temas')
       .insert([
         {
-          UserID: usuario.UserID,
+          userid: userIdState,
           tema_name: newTemaName.trim()
         }
       ])
       .select()
 
-    if (!error && data) {
+    if (error) {
+      console.error('Error insertando tema:', error)
+      alert(`Hubo un error al guardar la materia: ${error.message}`)
+    } else if (data) {
       setTemas([data[0], ...temas])
       setNewTemaName('')
       setShowModal(false)
@@ -112,7 +120,7 @@ export default function TemasPage() {
           </button>
 
           {temas.map((tema) => (
-            <div key={tema.TemaID} className={styles.temaCard}>
+            <div key={tema.temaid} className={styles.temaCard}>
               <div className={styles.temaIcon}>📚</div>
               <h3 className={styles.temaName}>{tema.tema_name}</h3>
               <span className={styles.temaStatus}>Sin materiales</span>
@@ -139,15 +147,15 @@ export default function TemasPage() {
                 />
               </div>
               <div className={styles.modalButtons}>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   className={styles.cancelBtn}
                   onClick={() => setShowModal(false)}
                 >
                   Cancelar
                 </button>
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   className={styles.saveBtn}
                   disabled={saving}
                 >
