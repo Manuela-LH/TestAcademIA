@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import styles from './temas.module.css'
 
@@ -11,6 +12,7 @@ interface Tema {
 }
 
 export default function TemasPage() {
+  const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<any>(null)
   const [temas, setTemas] = useState<Tema[]>([])
@@ -120,7 +122,11 @@ export default function TemasPage() {
           </button>
 
           {temas.map((tema) => (
-            <div key={tema.temaid} className={styles.temaCard}>
+            <div 
+              key={tema.temaid} 
+              className={styles.temaCard}
+              onClick={() => router.push(`/chat?tema=${encodeURIComponent(tema.tema_name)}`)}
+            >
               <div className={styles.temaIcon}>📚</div>
               <h3 className={styles.temaName}>{tema.tema_name}</h3>
               <span className={styles.temaStatus}>Sin materiales</span>
