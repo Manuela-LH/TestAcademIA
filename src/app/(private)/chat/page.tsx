@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
 import styles from './chat.module.css'
 
 interface Message {
@@ -14,10 +15,32 @@ export default function ChatPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const temaName = searchParams.get('tema') || 'Chat'
+
   const [messages, setMessages] = useState<Message[]>([])
   const [inputValue, setInputValue] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  // API Key Setup State
+  const [hasApiKey, setHasApiKey] = useState<boolean | null>(null)
+  const [apiKeyValue, setApiKeyValue] = useState('')
+  const [verifyingKey, setVerifyingKey] = useState(false)
+  const [setupError, setSetupError] = useState('')
+  const [setupSuccess, setSetupSuccess] = useState('')
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        if (user.user_metadata?.gemini_api_key) {
+          setHasApiKey(true)
+        } else {
+          setHasApiKey(false)
+        }
+      }
+    }
+    fetchUser()
+  }, [])
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -27,7 +50,53 @@ export default function ChatPage() {
     scrollToBottom()
   }, [messages, isTyping])
 
-  const handleSendMessage = () => {
+  const handleSaveApiKey = async () => {
+    if (!apiKeyValue.trim()) {
+      setSetupError('Por favor ingresa una API Key.')
+      return
+    }
+
+    setVerifyingKey(true)
+    setSetupError('')
+    setSetupSuccess('')
+
+    try {
+      // 1. Verificar la API Key
+      const verifyRes = await fetch('/api/gemini/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey: apiKeyValue.trim() })
+      })
+
+      const verifyData = await verifyRes.json()
+
+      if (!verifyRes.ok) {
+        setSetupError(verifyData.error || 'Error al verificar la API Key.')
+        setVerifyingKey(false)
+        return
+      }
+
+      // 2. Guardar en Supabase user_metadata
+      const { error } = await supabase.auth.updateUser({
+        data: { gemini_api_key: apiKeyValue.trim() }
+      })
+
+      if (error) {
+        setSetupError(error.message)
+        setVerifyingKey(false)
+      } else {
+        setSetupSuccess('¡API Key verificada y guardada correctamente!')
+        setTimeout(() => {
+          setHasApiKey(true)
+        }, 1500)
+      }
+    } catch (err: any) {
+      setSetupError('Error de red al verificar la API Key.')
+      setVerifyingKey(false)
+    }
+  }
+
+  const handleSendMessage = async () => {
     if (!inputValue.trim()) return
 
     const userMessage: Message = {
@@ -36,19 +105,49 @@ export default function ChatPage() {
       content: inputValue.trim()
     }
 
-    setMessages(prev => [...prev, userMessage])
+    // Add user message to state
+    const newMessages = [...messages, userMessage]
+    setMessages(newMessages)
     setInputValue('')
     setIsTyping(true)
 
-    setTimeout(() => {
-      setIsTyping(false)
-      const aiMessage: Message = {
+    try {
+      const chatRes = await fetch('/api/gemini/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: newMessages })
+      })
+
+      const chatData = await chatRes.json()
+
+      if (!chatRes.ok) {
+        // En caso de que se acabe la cuota o haya otro error, 
+        // mostrar un mensaje del sistema indicándolo.
+        const errorContent = chatRes.status === 429
+          ? '⚠️ ' + chatData.error
+          : '❌ Hubo un error al generar la respuesta. Por favor intenta de nuevo.'
+
+        setMessages(prev => [...prev, {
+          id: Date.now() + 1,
+          role: 'ai',
+          content: errorContent
+        }])
+      } else {
+        setMessages(prev => [...prev, {
+          id: Date.now() + 1,
+          role: 'ai',
+          content: chatData.content
+        }])
+      }
+    } catch (err) {
+      setMessages(prev => [...prev, {
         id: Date.now() + 1,
         role: 'ai',
-        content: 'Esta es una respuesta de ejemplo. La funcionalidad del chat con IA se implementará proximamente.'
-      }
-      setMessages(prev => [...prev, aiMessage])
-    }, 1500)
+        content: 'Hubo un problema de conexión. Por favor reintenta.'
+      }])
+    } finally {
+      setIsTyping(false)
+    }
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -58,22 +157,80 @@ export default function ChatPage() {
     }
   }
 
-  return (
-    <div className={styles.container}>
-      <aside className={styles.sidebar}>
-        <div className={styles.sidebarHeader}>
+  if (hasApiKey === null) {
+    return <div className={styles.container} style={{ justifyContent: 'center', alignItems: 'center' }}>Cargando entorno de chat...</div>
+  }
+
+  // --- VISTA DE TUTORIAL DE API KEY ---
+  if (!hasApiKey) {
+    return (
+      <div className={styles.container}>
+        <header className={styles.chatHeader}>
           <button onClick={() => router.push('/temas')} className={styles.backButton}>
             ← Volver a Materias
           </button>
-          <h1 className={styles.chatTitle}>{temaName}</h1>
-          <p className={styles.chatSubtitle}>Conversacion con IA</p>
+          <div>
+            <h1 className={styles.chatTitle}>Configuración de Asistente IA</h1>
+          </div>
+        </header>
+
+        <div className={styles.setupContainer}>
+          <div className={styles.setupCard}>
+            <h2 className={styles.setupTitle}>¡Bienvenido al Chat de AcademIA!</h2>
+            <p className={styles.setupDescription}>
+              Para poder utilizar nuestro tutor interactivo (basado en Gemini 2.5 Flash), necesitas proporcionar tu propia API Key de Google. Esto mantiene nuestro servicio gratuito para ti.
+            </p>
+
+            <div className={styles.setupList}>
+              <ol>
+                <li>Ve a <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a> e inicia sesión con tu cuenta de Google.</li>
+                <li>Haz clic en <strong>"Create API Key"</strong> y selecciona crearla en un nuevo proyecto o uno existente.</li>
+                <li>Copia la clave generada y pégala aquí abajo.</li>
+              </ol>
+            </div>
+
+            <div className={styles.setupInputGroup}>
+              <input
+                type="password"
+                placeholder="Ingresa tu API Key (Ej: AIzaSyB...)"
+                className={styles.setupInput}
+                value={apiKeyValue}
+                onChange={(e) => setApiKeyValue(e.target.value)}
+              />
+
+              {setupError && <p className={styles.errorText}>{setupError}</p>}
+              {setupSuccess && <p className={styles.successText}>{setupSuccess}</p>}
+
+              <button
+                className={styles.setupButton}
+                onClick={handleSaveApiKey}
+                disabled={verifyingKey}
+              >
+                {verifyingKey ? 'Verificando y guardando...' : 'Comenzar a aprender'}
+              </button>
+            </div>
+          </div>
         </div>
-      </aside>
+      </div>
+    )
+  }
+
+  // --- VISTA PRINCIPAL DEL CHAT ---
+  return (
+    <div className={styles.container}>
+      <header className={styles.chatHeader}>
+        <button onClick={() => router.push('/temas')} className={styles.backButton}>
+          ← Volver
+        </button>
+        <div>
+          <h1 className={styles.chatTitle}>{temaName} <span style={{ fontSize: '0.8rem', color: 'var(--color-primary)', fontWeight: 'normal' }}>⭐ Gemini 2.5 Flash</span></h1>
+        </div>
+      </header>
 
       <div className={styles.messagesContainer}>
         {messages.length === 0 ? (
           <div className={styles.aiMessage} style={{ alignSelf: 'center', maxWidth: '70%', textAlign: 'center' }}>
-            Hola! Soy tu asistente de estudio. Preguntame cualquier cosa sobre <strong>{temaName}</strong> y te ayudare a entender mejor el tema.
+            Hola! Soy tu asistente de estudio inteligente. Pregúntame cualquier cosa detallada sobre <strong>{temaName}</strong>.
           </div>
         ) : (
           <>
