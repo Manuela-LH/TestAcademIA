@@ -1,9 +1,105 @@
 .container {
   display: flex;
-  flex-direction: column;
   height: calc(100vh - 80px);
   background: var(--color-bg);
   position: relative;
+}
+
+.mainChat {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  position: relative;
+  background: var(--color-bg);
+}
+
+.sidebar {
+  width: 320px;
+  background: white;
+  border-right: 1px solid #E8ECEE;
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem;
+  overflow-y: auto;
+}
+
+.sidebarTitle {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-dark);
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.uploadButton {
+  width: 100%;
+  padding: 0.8rem;
+  background: #f0f7f9;
+  border: 1px dashed var(--color-primary);
+  border-radius: 12px;
+  color: var(--color-primary);
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: all 0.2s;
+  margin-bottom: 1.5rem;
+}
+
+.uploadButton:hover:not(:disabled) {
+  background: #e1f0f4;
+}
+
+.uploadButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.fileList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.fileItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem;
+  background: #f9fafb;
+  border: 1px solid #E8ECEE;
+  border-radius: 10px;
+  font-size: 0.85rem;
+}
+
+.fileName {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--color-dark);
+  margin-right: 0.5rem;
+}
+
+.deleteFileBtn {
+  background: transparent;
+  border: none;
+  color: #c92a2a;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.deleteFileBtn:hover {
+  background: #feeced;
 }
 
 .chatHeader {
