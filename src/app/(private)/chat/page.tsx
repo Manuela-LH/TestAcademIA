@@ -200,7 +200,7 @@ export default function ChatPage() {
       const chatRes = await fetch('/api/gemini/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: newMessages })
+        body: JSON.stringify({ messages: newMessages, tema: temaName })
       })
 
       const chatData = await chatRes.json()

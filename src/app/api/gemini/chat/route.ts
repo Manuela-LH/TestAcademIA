@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { GoogleGenerativeAI } from '@google/generative-ai'
+import { getSystemPrompt } from '@/lib/prompts'
 
 export async function POST(req: Request) {
     try {
@@ -39,13 +40,20 @@ export async function POST(req: Request) {
             }, { status: 400 })
         }
 
-        const { messages } = await req.json()
+        const { messages, tema } = await req.json()
         if (!messages || !Array.isArray(messages) || messages.length === 0) {
             return NextResponse.json({ error: 'No hay mensajes para enviar.' }, { status: 400 })
         }
 
         const genAI = new GoogleGenerativeAI(apiKey)
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" })
+        
+        // Configurar el System Prompt con el contexto del tema actual
+        const systemInstruction = getSystemPrompt(tema)
+        
+        const model = genAI.getGenerativeModel({ 
+            model: "gemini-2.5-flash",
+            systemInstruction 
+        })
 
         // Convert messages to Gemini history format
         const history = messages.slice(0, -1).map((m: any) => ({
