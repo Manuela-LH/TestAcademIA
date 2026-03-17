@@ -15,6 +15,10 @@ export default function ConfiguracionPage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [savingPassword, setSavingPassword] = useState(false)
 
+  const [apiKey, setApiKey] = useState('')
+  const [originalApiKey, setOriginalApiKey] = useState('')
+  const [savingApiKey, setSavingApiKey] = useState(false)
+
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
 
   useEffect(() => {
@@ -25,6 +29,10 @@ export default function ConfiguracionPage() {
         const fullName = user.user_metadata?.full_name || user.user_metadata?.display_name || ''
         setName(fullName)
         setOriginalName(fullName)
+        
+        const fetchedApiKey = user.user_metadata?.gemini_api_key || ''
+        setApiKey(fetchedApiKey)
+        setOriginalApiKey(fetchedApiKey)
       }
     }
     fetchUser()
@@ -72,6 +80,47 @@ export default function ConfiguracionPage() {
       setPassword('')
       setConfirmPassword('')
       setMessage({ type: 'success', text: 'Contraseña actualizada correctamente.' })
+    }
+  }
+
+  const handleUpdateApiKey = async () => {
+    setSavingApiKey(true)
+    setMessage(null)
+    const newApiKey = apiKey.trim()
+
+    try {
+      if (newApiKey) {
+        // Verificar API Key
+        const verifyRes = await fetch('/api/gemini/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ apiKey: newApiKey })
+        })
+
+        const verifyData = await verifyRes.json()
+
+        if (!verifyRes.ok) {
+          setMessage({ type: 'error', text: verifyData.error || 'Error al verificar la API Key.' })
+          setSavingApiKey(false)
+          return
+        }
+      }
+
+      // Guardar en Supabase (si está vacía se borra o se actualiza a vacía)
+      const { error } = await supabase.auth.updateUser({
+        data: { gemini_api_key: newApiKey }
+      })
+
+      if (error) {
+        setMessage({ type: 'error', text: error.message })
+      } else {
+        setOriginalApiKey(newApiKey)
+        setMessage({ type: 'success', text: 'API Key actualizada correctamente.' })
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Error de red al actualizar la API Key.' })
+    } finally {
+      setSavingApiKey(false)
     }
   }
 
@@ -160,6 +209,34 @@ export default function ConfiguracionPage() {
             </div>
           </div>
         )}
+      </div>
+
+      <div className={styles.card}>
+        <h2 className={styles.cardTitle}>🔑 API Key (Gemini)</h2>
+        <div className={styles.section}>
+          <label className={styles.label}>Clave de API de Google Gemini</label>
+          <p style={{ fontSize: '0.85rem', color: 'var(--color-text-light)', marginBottom: '0.5rem' }}>
+            Usada para el asistente de estudio. Puedes actualizarla o borrarla.
+          </p>
+          <div className={styles.inputWrapper}>
+            <input
+              type="password"
+              className={styles.input}
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              placeholder="Ingresa tu nueva API Key (opcional)"
+            />
+            {apiKey !== originalApiKey && (
+              <button
+                className={styles.actionBtn}
+                onClick={handleUpdateApiKey}
+                disabled={savingApiKey}
+              >
+                {savingApiKey ? 'Guardando...' : 'Confirmar'}
+              </button>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   )
