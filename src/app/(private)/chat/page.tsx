@@ -152,11 +152,32 @@ export default function ChatPage() {
 
     if (error) {
       console.error('Upload error', error)
-
-      // Si el bucket no existe, esto arrojará un error 404 (Bucket not found).
-      // En tal caso el usuario deberá configurarlo
       alert('Error al subir el archivo. Verifica que el bucket "archivos_chat" exista. Detalle: ' + error.message)
     } else {
+      // 🚀 INICIO DE INGESTIÓN RAG
+      try {
+        const fileBuffer = await file.arrayBuffer()
+        const base64Buffer = Buffer.from(fileBuffer).toString('base64')
+        
+        const { data: { user } } = await supabase.auth.getUser()
+        const apiKey = user?.user_metadata?.gemini_api_key
+        
+        await fetch('/api/documents/process', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fileBuffer: base64Buffer,
+            fileName: file.name,
+            userId: userId,
+            temaName: temaName,
+            apiKey: apiKey
+          })
+        });
+      } catch (ingestError) {
+        console.error('Error enviando a procesamiento:', ingestError);
+      }
+      // 🚀 FIN DE INGESTIÓN RAG
+
       await loadFiles()
     }
 
@@ -169,14 +190,31 @@ export default function ChatPage() {
     if (!confirm('¿Seguro que deseas eliminar este archivo?')) return
 
     const filePath = `${userId}/${temaName}/${fileName}`
-    const { error } = await supabase.storage
+    
+    // Eliminar de Storage
+    const { error: storageError } = await supabase.storage
       .from('archivos_chat')
       .remove([filePath])
 
-    if (error) {
-      console.error('Delete error', error)
-      alert('Error al eliminar: ' + error.message)
+    if (storageError) {
+      console.error('Delete error', storageError)
+      alert('Error al eliminar: ' + storageError.message)
     } else {
+      // Eliminar de document_segments
+      try {
+        await fetch('/api/documents/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fileName: fileName,
+            userId: userId,
+            temaName: temaName
+          })
+        })
+      } catch (deleteError) {
+        console.error('Error eliminando segmentos:', deleteError)
+      }
+      
       await loadFiles()
     }
   }
@@ -315,6 +353,7 @@ export default function ChatPage() {
           type="file"
           ref={fileInputRef}
           onChange={handleFileUpload}
+          accept=".pdf,.docx,.doc,.pptx,.ppt,.txt,.jpg,.jpeg,.png,.gif,.webp"
           style={{ display: 'none' }}
         />
         <button
